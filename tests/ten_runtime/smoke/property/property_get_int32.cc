@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -13,7 +13,7 @@
 #include "ten_utils/lib/thread.h"
 #include "ten_utils/macro/macros.h"
 #include "tests/common/client/cpp/msgpack_tcp.h"
-#include "tests/ten_runtime/smoke/extension_test/util/binding/cpp/check.h"
+#include "tests/ten_runtime/smoke/util/binding/cpp/check.h"
 
 #define PROP_NAME "test_prop"
 #define PROP_VAL 12345
@@ -22,11 +22,11 @@ namespace {
 
 class test_extension : public ten::extension_t {
  public:
-  explicit test_extension(const std::string &name) : ten::extension_t(name) {}
+  explicit test_extension(const char *name) : ten::extension_t(name) {}
 
   void on_cmd(ten::ten_env_t &ten_env,
               std::unique_ptr<ten::cmd_t> cmd) override {
-    if (std::string(cmd->get_name()) == "hello_world") {
+    if (cmd->get_name() == "hello_world") {
       auto int8_prop_value = ten_env.get_property_int8("app:" PROP_NAME);
       EXPECT_EQ(int8_prop_value, 0);
 

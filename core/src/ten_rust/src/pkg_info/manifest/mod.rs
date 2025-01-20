@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -9,9 +9,10 @@ pub mod dependency;
 pub mod publish;
 pub mod support;
 
+use std::collections::HashMap;
 use std::{fmt, fs, path::Path, str::FromStr};
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::pkg_info::utils::read_file_to_string;
@@ -21,16 +22,14 @@ use dependency::ManifestDependency;
 use publish::PackageConfig;
 use support::ManifestSupport;
 
-use super::dependencies::get_pkg_dependencies_from_manifest_dependencies;
-use super::hash::gen_hash_hex;
-use super::supports::get_pkg_supports_from_manifest_supports;
+use super::pkg_type_and_name::PkgTypeAndName;
 
 // Define a structure that mirrors the structure of the JSON file.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Manifest {
-    #[serde(rename = "type")]
-    pub pkg_type: String,
-    pub name: String,
+    #[serde(flatten)]
+    pub type_and_name: PkgTypeAndName,
+
     pub version: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -46,6 +45,9 @@ pub struct Manifest {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub package: Option<PackageConfig>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scripts: Option<HashMap<String, String>>,
 }
 
 impl FromStr for Manifest {
@@ -75,21 +77,39 @@ impl Manifest {
         Ok(())
     }
 
-    pub fn gen_hash_hex(&self) -> Result<String> {
-        let dependencies =
-            self.dependencies.as_ref().map_or(Ok(vec![]), |d| {
-                get_pkg_dependencies_from_manifest_dependencies(d)
-            })?;
+    pub fn check_fs_location(
+        &self,
+        addon_type_folder_name: Option<&str>,
+        addon_folder_name: Option<&str>,
+    ) -> Result<()> {
+        if let Some(addon_folder_name) = addon_folder_name {
+            // The package `Foo` must be located inside the folder
+            // `Foo/`, so that during runtime dynamic loading, the
+            // desired package can be identified simply by searching
+            // for the folder name. Additionally, the unique nature
+            // of package names can be ensured through the file
+            // system's restriction that prevents duplicate folder
+            // names within the same directory.
+            if self.type_and_name.name != addon_folder_name {
+                return Err(anyhow!(format!(
+                    "the name of the folder '{}' and the package '{}' are different",
+                    addon_folder_name, self.type_and_name.name
+                )));
+            }
+        }
 
-        let supports = get_pkg_supports_from_manifest_supports(&self.supports)?;
+        if let Some(addon_type_folder_name) = addon_type_folder_name {
+            if self.type_and_name.pkg_type.to_string() != addon_type_folder_name
+            {
+                return Err(anyhow!(format!(
+                    "The folder name '{}' does not match the expected package type '{}'",
+                    addon_type_folder_name,
+                    self.type_and_name.pkg_type.to_string(),
+                )));
+            }
+        }
 
-        gen_hash_hex(
-            &self.pkg_type.parse()?,
-            &self.name,
-            &self.version.parse()?,
-            &dependencies,
-            &supports,
-        )
+        Ok(())
     }
 }
 
@@ -105,9 +125,42 @@ pub fn parse_manifest_from_file<P: AsRef<Path>>(
     manifest_file_path: P,
 ) -> Result<Manifest> {
     // Read the contents of the manifest.json file.
-    let content = read_file_to_string(manifest_file_path)?;
+    let content = read_file_to_string(&manifest_file_path)?;
 
-    Manifest::from_str(&content)
+    let mut manifest: Manifest =
+        serde_json::from_str(&content).with_context(|| {
+            format!(
+                "Failed to parse JSON from '{}'",
+                manifest_file_path.as_ref().display()
+            )
+        })?;
+
+    let manifest_folder_path =
+        manifest_file_path.as_ref().parent().ok_or_else(|| {
+            anyhow::anyhow!(
+                "Failed to determine the parent directory of '{}'",
+                manifest_file_path.as_ref().display()
+            )
+        })?;
+
+    if let Some(dependencies) = &mut manifest.dependencies {
+        for dep in dependencies.iter_mut() {
+            if let ManifestDependency::LocalDependency { base_dir, .. } = dep {
+                let base_dir_str = manifest_folder_path
+                    .to_str()
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Failed to convert folder path to string"
+                        )
+                    })?
+                    .to_string();
+
+                *base_dir = base_dir_str;
+            }
+        }
+    }
+
+    Ok(manifest)
 }
 
 pub fn parse_manifest_in_folder(folder_path: &Path) -> Result<Manifest> {
@@ -134,6 +187,8 @@ pub fn parse_manifest_in_folder(folder_path: &Path) -> Result<Manifest> {
 
 #[cfg(test)]
 mod tests {
+    use crate::pkg_info::pkg_type::PkgType;
+
     use super::*;
 
     #[test]
@@ -146,7 +201,7 @@ mod tests {
         assert!(result.is_ok());
 
         let manifest = result.unwrap();
-        assert_eq!(manifest.pkg_type, "extension");
+        assert_eq!(manifest.type_and_name.pkg_type, PkgType::Extension);
 
         let cmd_in = manifest.api.unwrap().cmd_in.unwrap();
         assert_eq!(cmd_in.len(), 1);

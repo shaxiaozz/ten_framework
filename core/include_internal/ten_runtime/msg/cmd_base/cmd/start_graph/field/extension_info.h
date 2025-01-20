@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -18,9 +18,6 @@ typedef struct ten_error_t ten_error_t;
 
 TEN_RUNTIME_PRIVATE_API void ten_cmd_start_graph_copy_extensions_info(
     ten_msg_t *self, ten_msg_t *src, ten_list_t *excluded_field_ids);
-
-TEN_RUNTIME_PRIVATE_API ten_value_t *
-ten_cmd_start_graph_extensions_info_to_value(ten_msg_t *self, ten_error_t *err);
 
 TEN_RUNTIME_PRIVATE_API bool ten_cmd_start_graph_process_extensions_info(
     ten_msg_t *self, ten_raw_msg_process_one_field_func_t cb, void *user_data,

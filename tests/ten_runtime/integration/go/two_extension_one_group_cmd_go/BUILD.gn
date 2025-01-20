@@ -1,5 +1,5 @@
 #
-# Copyright © 2024 Agora
+# Copyright © 2025 Agora
 # This file is part of TEN Framework, an open source project.
 # Licensed under the Apache License, Version 2.0, with certain conditions.
 # Refer to the "LICENSE" file in the root directory for more information.
@@ -12,10 +12,17 @@ ten_package_test_prepare_app("two_extension_one_group_cmd_go_app") {
   src_app_language = "go"
   generated_app_src_root_dir_name = "two_extension_one_group_cmd_go_app"
 
-  replace_files_after_install_app = [
+  replace_paths_after_install_app = [
     "two_extension_one_group_cmd_go_app/manifest.json",
     "two_extension_one_group_cmd_go_app/property.json",
-    "two_extension_one_group_cmd_go_app/ten_packages",
+    "two_extension_one_group_cmd_go_app/ten_packages/extension/addon_a/extension.go",
+    "two_extension_one_group_cmd_go_app/ten_packages/extension/addon_a/go.mod",
+    "two_extension_one_group_cmd_go_app/ten_packages/extension/addon_a/manifest.json",
+    "two_extension_one_group_cmd_go_app/ten_packages/extension/addon_a/property.json",
+    "two_extension_one_group_cmd_go_app/ten_packages/extension/addon_b/extension.go",
+    "two_extension_one_group_cmd_go_app/ten_packages/extension/addon_b/go.mod",
+    "two_extension_one_group_cmd_go_app/ten_packages/extension/addon_b/manifest.json",
+    "two_extension_one_group_cmd_go_app/ten_packages/extension/addon_b/property.json",
   ]
 
   if (ten_enable_ten_manager) {

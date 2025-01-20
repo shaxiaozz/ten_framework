@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -254,7 +254,7 @@ pub async fn get_graph_nodes(
             let pkg_info = pkg_info.unwrap();
             resp_extensions.push(DesignerExtension {
                 addon: extension.addon.clone(),
-                name: extension.name.clone(),
+                name: extension.type_and_name.name.clone(),
                 extension_group: extension.extension_group.clone().unwrap(),
                 app: extension.app.as_ref().unwrap().clone(),
                 api: pkg_info.api.as_ref().map(|api| DesignerApi {

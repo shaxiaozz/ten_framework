@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -34,8 +34,7 @@ pub async fn get_graphs(
 
     // Fetch all packages if not already done.
     if let Err(err) = get_all_pkgs(&mut state) {
-        let error_response =
-            ErrorResponse::from_error(&err, "Error fetching packages:");
+        let error_response = ErrorResponse::from_error(&err, "");
         return Ok(HttpResponse::NotFound().json(error_response));
     }
 

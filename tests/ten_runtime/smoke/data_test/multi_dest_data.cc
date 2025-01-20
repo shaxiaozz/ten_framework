@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -13,7 +13,7 @@
 #include "ten_utils/lib/thread.h"
 #include "ten_utils/macro/check.h"
 #include "tests/common/client/cpp/msgpack_tcp.h"
-#include "tests/ten_runtime/smoke/extension_test/util/binding/cpp/check.h"
+#include "tests/ten_runtime/smoke/util/binding/cpp/check.h"
 
 #define DATA "hello world"
 
@@ -21,11 +21,11 @@ namespace {
 
 class test_extension_1 : public ten::extension_t {
  public:
-  explicit test_extension_1(const std::string &name) : ten::extension_t(name) {}
+  explicit test_extension_1(const char *name) : ten::extension_t(name) {}
 
   void on_cmd(ten::ten_env_t &ten_env,
               std::unique_ptr<ten::cmd_t> cmd) override {
-    if (std::string(cmd->get_name()) == "dispatch_data") {
+    if (cmd->get_name() == "dispatch_data") {
       const char *str = DATA;
       auto length = strlen(str);
 
@@ -49,7 +49,7 @@ class test_extension_1 : public ten::extension_t {
 
 class test_extension_2 : public ten::extension_t {
  public:
-  explicit test_extension_2(const std::string &name) : ten::extension_t(name) {}
+  explicit test_extension_2(const char *name) : ten::extension_t(name) {}
 
   void on_data(TEN_UNUSED ten::ten_env_t &ten_env,
                std::unique_ptr<ten::data_t> data) override {
@@ -64,7 +64,7 @@ class test_extension_2 : public ten::extension_t {
 
   void on_cmd(ten::ten_env_t &ten_env,
               std::unique_ptr<ten::cmd_t> cmd) override {
-    if (std::string(cmd->get_name()) == "check_received") {
+    if (cmd->get_name() == "check_received") {
       if (received) {
         auto cmd_result = ten::cmd_result_t::create(TEN_STATUS_CODE_OK);
         cmd_result->set_property("detail", "received confirmed");
@@ -83,7 +83,7 @@ class test_extension_2 : public ten::extension_t {
 
 class test_extension_3 : public ten::extension_t {
  public:
-  explicit test_extension_3(const std::string &name) : ten::extension_t(name) {}
+  explicit test_extension_3(const char *name) : ten::extension_t(name) {}
 
   void on_data(TEN_UNUSED ten::ten_env_t &ten_env,
                std::unique_ptr<ten::data_t> data) override {
@@ -98,7 +98,7 @@ class test_extension_3 : public ten::extension_t {
 
   void on_cmd(ten::ten_env_t &ten_env,
               std::unique_ptr<ten::cmd_t> cmd) override {
-    if (std::string(cmd->get_name()) == "check_received") {
+    if (cmd->get_name() == "check_received") {
       if (received) {
         auto cmd_result = ten::cmd_result_t::create(TEN_STATUS_CODE_OK);
         cmd_result->set_property("detail", "received confirmed");
@@ -184,17 +184,14 @@ TEST(DataTest, MultiDestData) {  // NOLINT
              }],
              "connections": [{
                "app": "msgpack://127.0.0.1:8001/",
-               "extension_group": "test_extension_group",
                "extension": "extension 1",
                "data": [{
                  "name": "data",
                  "dest": [{
                    "app": "msgpack://127.0.0.1:8001/",
-                   "extension_group": "test_extension_group",
                    "extension": "extension 2"
                  },{
                    "app": "msgpack://127.0.0.1:8001/",
-                   "extension_group": "test_extension_group",
                    "extension": "extension 3"
                  }]
                }]

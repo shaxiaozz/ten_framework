@@ -1,25 +1,25 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
 //
-use std::{
-    hash::{Hash, Hasher},
-    str::FromStr,
-};
+use std::str::FromStr;
 
-use anyhow::Result;
-use semver::{Version, VersionReq};
+use anyhow::{anyhow, Result};
+use semver::VersionReq;
 use serde::{Deserialize, Serialize};
 
-use super::{pkg_type::PkgType, pkg_type_and_name::PkgTypeAndName};
+use super::{
+    constants::MANIFEST_JSON_FILENAME, pkg_type::PkgType,
+    pkg_type_and_name::PkgTypeAndName,
+};
 use crate::pkg_info::manifest::{dependency::ManifestDependency, Manifest};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PkgDependency {
-    pub pkg_type: PkgType,
-    pub name: String,
+    #[serde(flatten)]
+    pub type_and_name: PkgTypeAndName,
 
     // The version requirement of this dependency, ex: the `version`
     // field declared in the `dependencies` section in the manifest.json, or
@@ -28,14 +28,84 @@ pub struct PkgDependency {
     // The `version_req_str` is the original value in string form, while
     // `version_req` is the result after being converted to `VersionReq`.
     pub version_req: VersionReq,
-    pub version_req_str: Option<String>,
+
+    // If the `path` field is not `None`, it indicates that this is a local
+    // dependency.
+    pub path: Option<String>,
+
+    // Refer to `base_dir` of ManifestDependency.
+    pub base_dir: Option<String>,
+}
+
+impl PkgDependency {
+    pub fn is_local(&self) -> bool {
+        self.path.is_some()
+    }
 }
 
 impl From<&PkgDependency> for PkgTypeAndName {
     fn from(dependency: &PkgDependency) -> Self {
-        PkgTypeAndName {
-            pkg_type: dependency.pkg_type,
-            name: dependency.name.clone(),
+        dependency.type_and_name.clone()
+    }
+}
+
+impl TryFrom<&ManifestDependency> for PkgDependency {
+    type Error = anyhow::Error;
+
+    fn try_from(dep: &ManifestDependency) -> Result<Self> {
+        match dep {
+            ManifestDependency::RegistryDependency {
+                pkg_type,
+                name,
+                version,
+            } => Ok(PkgDependency {
+                type_and_name: PkgTypeAndName {
+                    pkg_type: PkgType::from_str(pkg_type)?,
+                    name: name.clone(),
+                },
+                version_req: VersionReq::parse(version)?,
+                path: None,
+                base_dir: None,
+            }),
+
+            ManifestDependency::LocalDependency { path, base_dir } => {
+                // Check if there is a manifest.json file under the path.
+                let dep_folder_path = std::path::Path::new(base_dir).join(path);
+
+                if !dep_folder_path.exists() {
+                    return Err(anyhow!(
+                        "Local dependency path '{}' does not exist",
+                        path
+                    ));
+                }
+
+                let dep_manifest_path =
+                    dep_folder_path.join(MANIFEST_JSON_FILENAME);
+
+                if !dep_manifest_path.exists() {
+                    return Err(anyhow!(
+                        "Local dependency path '{}' does not contain \
+                        manifest.json",
+                        path
+                    ));
+                }
+
+                // Parse the `manifest.json` file to retrieve the `type`,
+                // `name`, and `version`.
+                let local_manifest =
+                    crate::pkg_info::manifest::parse_manifest_from_file(
+                        &dep_manifest_path,
+                    )?;
+
+                Ok(PkgDependency {
+                    type_and_name: local_manifest.type_and_name.clone(),
+                    version_req: semver::VersionReq::parse(
+                        &local_manifest.version,
+                    )?,
+                    path: Some(path.clone()),
+                    base_dir: Some(base_dir.clone()),
+                })
+            }
         }
     }
 }
@@ -53,69 +123,17 @@ pub fn get_pkg_dependencies_from_manifest(
     }
 }
 
-pub fn get_pkg_dependencies_from_manifest_dependencies(
-    manifest_dependencies: &Vec<ManifestDependency>,
+fn get_pkg_dependencies_from_manifest_dependencies(
+    manifest_dependencies: &[ManifestDependency],
 ) -> Result<Vec<PkgDependency>> {
-    let mut dependencies = Vec::new();
-
-    for manifest_dependency in manifest_dependencies {
-        let pkg_type = PkgType::from_str(&manifest_dependency.pkg_type)?;
-        let name = manifest_dependency.name.clone();
-        let version_req = VersionReq::parse(&manifest_dependency.version)?;
-
-        dependencies.push(PkgDependency {
-            pkg_type,
-            name,
-            version_req,
-            version_req_str: Some(manifest_dependency.version.clone()),
-        });
-    }
-
-    Ok(dependencies)
-}
-
-/// The hash function of `Dependency`. A unique dependency is identified by its
-/// type and name.
-impl Hash for PkgDependency {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.pkg_type.hash(state);
-        self.name.hash(state);
-    }
-}
-
-impl PartialEq for PkgDependency {
-    fn eq(&self, other: &Self) -> bool {
-        self.pkg_type == other.pkg_type && self.name == other.name
-    }
-}
-
-impl PkgDependency {
-    pub fn new(
-        pkg_type: PkgType,
-        name: String,
-        version_req: VersionReq,
-    ) -> Self {
-        PkgDependency {
-            pkg_type,
-            name,
-            version_req,
-            version_req_str: None,
-        }
-    }
-}
-
-impl Eq for PkgDependency {}
-
-#[derive(Debug)]
-pub struct DependencyRelationship {
-    pub pkg_type: PkgType,
-    pub name: String,
-    pub version: Version,
-    pub dependency: PkgDependency,
+    manifest_dependencies
+        .iter()
+        .map(PkgDependency::try_from)
+        .collect()
 }
 
 pub fn get_manifest_dependencies_from_pkg(
     pkg_dependencies: Vec<PkgDependency>,
 ) -> Vec<ManifestDependency> {
-    pkg_dependencies.into_iter().map(|v| v.into()).collect()
+    pkg_dependencies.into_iter().map(|v| (&v).into()).collect()
 }

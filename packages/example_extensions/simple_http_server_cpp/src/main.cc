@@ -522,8 +522,7 @@ std::thread create_http_server_thread(http_server_t *http_server) {
 
 class http_server_extension_t : public ten::extension_t {
  public:
-  explicit http_server_extension_t(const std::string &name)
-      : extension_t(name) {}
+  explicit http_server_extension_t(const char *name) : extension_t(name) {}
 
   void on_start(ten::ten_env_t &ten_env) override {
     int server_port = DEFAULT_SERVER_PORT;
@@ -643,7 +642,7 @@ void send_ten_msg_with_req_body(
               if (error != nullptr) {
                 prepare_response_data_from_ten_world(
                     http_session_data, "The command is not supported. err:" +
-                                           std::string(error->errmsg()));
+                                           std::string(error->err_msg()));
                 return;
               }
 
@@ -683,7 +682,7 @@ void send_ten_msg_without_req_body(
               if (error != nullptr) {
                 prepare_response_data_from_ten_world(
                     http_session_data, "The command is not supported. err:" +
-                                           std::string(error->errmsg()));
+                                           std::string(error->err_msg()));
                 return;
               }
 

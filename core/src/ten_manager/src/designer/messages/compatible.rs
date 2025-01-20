@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -58,7 +58,7 @@ impl From<CompatibleExtensionAndMsg<'_>> for DesignerCompatibleMsg {
                 .clone()
                 .unwrap()
                 .clone(),
-            extension: compatible.extension.name.clone(),
+            extension: compatible.extension.type_and_name.name.clone(),
             msg_type: compatible.msg_type,
             msg_direction: compatible.msg_direction,
             msg_name: compatible.msg_name,

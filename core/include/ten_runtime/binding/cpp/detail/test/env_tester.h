@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -78,8 +78,6 @@ class ten_env_tester_t {
       // ownership of the cmd to the TEN runtime.
       auto *cpp_cmd_ptr = cmd.release();
       delete cpp_cmd_ptr;
-    } else {
-      TEN_LOGE("Failed to send_cmd: %s", cmd->get_name());
     }
 
     return rc;
@@ -104,8 +102,6 @@ class ten_env_tester_t {
       // ownership of the data to the TEN runtime.
       auto *cpp_data_ptr = data.release();
       delete cpp_data_ptr;
-    } else {
-      TEN_LOGE("Failed to send_data: %s", data->get_name());
     }
 
     return rc;
@@ -131,8 +127,6 @@ class ten_env_tester_t {
       // back the ownership of the audio_frame to the TEN runtime.
       auto *cpp_audio_frame_ptr = audio_frame.release();
       delete cpp_audio_frame_ptr;
-    } else {
-      TEN_LOGE("Failed to send_audio_frame: %s", audio_frame->get_name());
     }
 
     return rc;
@@ -158,8 +152,39 @@ class ten_env_tester_t {
       // back the ownership of the video_frame to the TEN runtime.
       auto *cpp_video_frame_ptr = video_frame.release();
       delete cpp_video_frame_ptr;
-    } else {
-      TEN_LOGE("Failed to send_video_frame: %s", video_frame->get_name());
+    }
+
+    return rc;
+  }
+
+  bool return_result(std::unique_ptr<cmd_result_t> &&cmd_result,
+                     std::unique_ptr<cmd_t> &&target_cmd,
+                     error_t *err = nullptr) {
+    TEN_ASSERT(c_ten_env_tester, "Should not happen.");
+
+    bool rc = false;
+
+    if (!cmd_result || !target_cmd) {
+      TEN_ASSERT(0, "Invalid argument.");
+      return rc;
+    }
+
+    rc = ten_env_tester_return_result(
+        c_ten_env_tester, cmd_result->get_underlying_msg(),
+        target_cmd->get_underlying_msg(), nullptr, nullptr,
+        err != nullptr ? err->get_c_error() : nullptr);
+
+    if (rc) {
+      // Only when is_final is true does the ownership of target_cmd transfer.
+      // Otherwise, target_cmd remains with the extension, allowing the
+      // extension to return more results.
+      if (cmd_result->is_final()) {
+        auto *cpp_target_cmd_ptr = target_cmd.release();
+        delete cpp_target_cmd_ptr;
+      }
+
+      auto *cpp_cmd_result_ptr = cmd_result.release();
+      delete cpp_cmd_result_ptr;
     }
 
     return rc;
@@ -216,8 +241,8 @@ class ten_env_tester_t {
 
     if (ten_cmd_result_is_final(c_cmd_result, nullptr)) {
       // Only when is_final is true should the result handler be cleared.
-      // Otherwise, since more result handlers are expected, the result
-      // handler should not be cleared.
+      // Otherwise, since more result handlers are expected, the result handler
+      // should not be cleared.
       delete result_handler;
     }
   }

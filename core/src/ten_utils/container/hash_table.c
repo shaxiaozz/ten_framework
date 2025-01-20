@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -191,6 +191,8 @@ void ten_hashtable_init(ten_hashtable_t *self, ptrdiff_t hh_offset) {
 void ten_hashtable_deinit(ten_hashtable_t *self) {
   assert(self);
 
+  ten_hashtable_clear(self);
+
   if (self->bkts) {
     free(self->bkts);
     self->bkts = NULL;
@@ -205,8 +207,6 @@ void ten_hashtable_clear(ten_hashtable_t *self) {
   assert(self);
 
   ten_hashtable_foreach(self, iter) { ten_hashtable_del(self, iter.node); }
-
-  ten_hashtable_deinit(self);
 }
 
 void ten_hashtable_concat(ten_hashtable_t *self, ten_hashtable_t *target) {

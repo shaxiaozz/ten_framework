@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -31,7 +31,15 @@ fn merge(cmd_line: TmanConfig, config_file: TmanConfig) -> TmanConfig {
 
 fn main() {
     let mut tman_config_from_cmd_line = TmanConfig::default();
-    let command_data = cmd_line::parse_cmd(&mut tman_config_from_cmd_line);
+
+    let command_data = match cmd_line::parse_cmd(&mut tman_config_from_cmd_line)
+    {
+        Ok(cmd_data) => cmd_data,
+        Err(e) => {
+            eprintln!("{}  Error: {}", Emoji("🔴", ":-("), e);
+            process::exit(1);
+        }
+    };
 
     let tman_config_from_config_file = ten_manager::config::read_config(
         &tman_config_from_cmd_line.config_file,
@@ -43,8 +51,7 @@ fn main() {
     let rt = Runtime::new().unwrap();
     let result = rt.block_on(cmd::execute_cmd(&tman_config, command_data));
     if let Err(e) = result {
-        println!("{}  Error: {:?}", Emoji("❌", ":-("), e);
-
+        println!("{}  Error: {:?}", Emoji("🔴", ":-("), e);
         process::exit(1);
     }
 

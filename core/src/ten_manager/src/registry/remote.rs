@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -13,11 +13,12 @@ use semver::Version;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tempfile::NamedTempFile;
+use ten_rust::pkg_info::pkg_basic_info::PkgBasicInfo;
 use ten_rust::pkg_info::pkg_type::PkgType;
 use tokio::sync::RwLock;
 use tokio::time::sleep;
 
-use ten_rust::pkg_info::{supports::get_manifest_supports_from_pkg, PkgInfo};
+use ten_rust::pkg_info::PkgInfo;
 
 use super::{FoundResult, SearchCriteria};
 use crate::constants::{
@@ -25,8 +26,8 @@ use crate::constants::{
     REMOTE_REGISTRY_RETRY_DELAY_MS,
 };
 use crate::{
-    config::TmanConfig, error::TmanError, log::tman_verbose_println,
-    registry::found_result::RegistryPackageData,
+    config::TmanConfig, log::tman_verbose_println,
+    registry::found_result::PkgRegistryInfo,
 };
 
 async fn retry_async<'a, F, T>(
@@ -101,19 +102,13 @@ async fn get_package_upload_info(
         let pkg_info = pkg_info.clone();
 
         Box::pin(async move {
-            let payload = json!(RegistryPackageData {
-                pkg_type: pkg_info.basic_info.type_and_name.pkg_type,
-                name: pkg_info.basic_info.type_and_name.name.clone(),
-                version: pkg_info.basic_info.version.clone(),
+            let payload = json!(PkgRegistryInfo {
+                basic_info: PkgBasicInfo::from(&pkg_info),
                 dependencies: pkg_info
                     .dependencies
                     .clone()
                     .into_iter()
-                    .map(|d| d.into())
                     .collect(),
-                supports: Some(get_manifest_supports_from_pkg(
-                    &pkg_info.basic_info.supports
-                )),
                 hash: pkg_info.hash.clone(),
             });
 
@@ -139,10 +134,7 @@ async fn get_package_upload_info(
                     tman_config,
                     "Authorization token is missing"
                 );
-                return Err(TmanError::Custom(
-                    "Authorization token is missing".to_string(),
-                )
-                .into());
+                return Err(anyhow!("Authorization token is missing"));
             }
 
             let response = client
@@ -226,11 +218,10 @@ async fn upload_package_to_remote(
                     if resp.status().is_success() {
                         Ok(())
                     } else {
-                        Err(TmanError::Custom(format!(
+                        Err(anyhow!(
                             "Failed to upload package with HTTP status {:?}",
                             resp.text().await
                         ))
-                        .into())
                     }
                 }
                 Err(e) => Err(e.into()),
@@ -279,11 +270,10 @@ async fn ack_of_uploading(
                     if resp.status().is_success() {
                         Ok(())
                     } else {
-                        Err(TmanError::Custom(format!(
+                        Err(anyhow!(
                     "Failed to acknowledge uploading with HTTP status {}",
                     resp.status()
                 ))
-                        .into())
                     }
                 }
                 Err(e) => Err(e.into()),
@@ -470,7 +460,7 @@ struct ApiResponse {
 struct RegistryPackagesData {
     #[serde(rename = "totalSize")]
     total_size: u32,
-    packages: Vec<RegistryPackageData>,
+    packages: Vec<PkgRegistryInfo>,
 }
 
 pub async fn get_package_list(
@@ -544,16 +534,19 @@ pub async fn get_package_list(
 
                 total_size = api_response.data.total_size as usize;
 
-                for package_data in api_response.data.packages {
+                for pkg_registry_info in api_response.data.packages {
                     let url = PathBuf::from(format!(
                         "{}/{}/{}/{}/{}",
                         &base_url,
-                        package_data.pkg_type,
-                        package_data.name,
-                        package_data.version,
-                        package_data.hash,
+                        pkg_registry_info.basic_info.type_and_name.pkg_type,
+                        pkg_registry_info.basic_info.type_and_name.name,
+                        pkg_registry_info.basic_info.version,
+                        pkg_registry_info.hash,
                     ));
-                    results.push(FoundResult { url, package_data });
+                    results.push(FoundResult {
+                        url,
+                        pkg_registry_info,
+                    });
                 }
 
                 // Check if we've fetched all packages based on totalSize.
@@ -633,10 +626,7 @@ pub async fn delete_package(
                     &tman_config,
                     "Authorization token is missing"
                 );
-                return Err(TmanError::Custom(
-                    "Authorization token is missing".to_string(),
-                )
-                .into());
+                return Err(anyhow!("Authorization token is missing"));
             }
 
             // Sending the DELETE request.
@@ -654,11 +644,7 @@ pub async fn delete_package(
                     if resp.status().is_success() {
                         Ok(())
                     } else {
-                        Err(TmanError::Custom(format!(
-                            "HTTP error: {}",
-                            resp.status()
-                        ))
-                        .into())
+                        Err(anyhow!("HTTP error: {}", resp.status()))
                     }
                 }
                 Err(e) => Err(e.into()),

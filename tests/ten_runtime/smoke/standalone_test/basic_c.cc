@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -14,7 +14,7 @@
 #include "ten_utils/lang/cpp/lib/value.h"
 #include "ten_utils/lib/smart_ptr.h"
 #include "ten_utils/macro/check.h"
-#include "tests/ten_runtime/smoke/extension_test/util/binding/cpp/check.h"
+#include "tests/ten_runtime/smoke/util/binding/cpp/check.h"
 
 namespace {
 
@@ -23,11 +23,11 @@ namespace {
 
 class test_extension_1 : public ten::extension_t {
  public:
-  explicit test_extension_1(const std::string &name) : ten::extension_t(name) {}
+  explicit test_extension_1(const char *name) : ten::extension_t(name) {}
 
   void on_cmd(ten::ten_env_t &ten_env,
               std::unique_ptr<ten::cmd_t> cmd) override {
-    if (std::string(cmd->get_name()) == "hello_world") {
+    if (cmd->get_name() == "hello_world") {
       auto cmd_result = ten::cmd_result_t::create(TEN_STATUS_CODE_OK);
       cmd_result->set_property("detail", "hello world, too");
       bool rc = ten_env.return_result(std::move(cmd_result), std::move(cmd));
@@ -73,8 +73,9 @@ void ten_extension_tester_on_start(TEN_UNUSED ten_extension_tester_t *tester,
 }  // namespace
 
 TEST(StandaloneTest, BasicC) {  // NOLINT
-  ten_extension_tester_t *tester = ten_extension_tester_create(
-      ten_extension_tester_on_start, nullptr, nullptr, nullptr, nullptr);
+  ten_extension_tester_t *tester =
+      ten_extension_tester_create(ten_extension_tester_on_start, nullptr,
+                                  nullptr, nullptr, nullptr, nullptr);
   ten_extension_tester_set_test_mode_single(
       tester, "standalone_test_basic_c__test_extension_1", nullptr);
 

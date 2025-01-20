@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -46,7 +46,7 @@ static void ten_schema_keyword_properties_destroy(ten_schema_keyword_t *self_) {
              "Invalid argument.");
 
   ten_signature_set(&self->signature, 0);
-  ten_hashtable_clear(&self->properties);
+  ten_hashtable_deinit(&self->properties);
   ten_schema_keyword_deinit(&self->hdr);
   TEN_FREE(self);
 }

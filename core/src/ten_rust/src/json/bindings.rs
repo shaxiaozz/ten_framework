@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -11,7 +11,7 @@ use std::ptr;
 use crate::json;
 
 #[no_mangle]
-pub extern "C" fn ten_remove_json_comments(
+pub unsafe extern "C" fn ten_remove_json_comments(
     json_with_comments: *const c_char,
 ) -> *mut c_char {
     if json_with_comments.is_null() {

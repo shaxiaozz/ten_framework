@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -7,13 +7,13 @@
 #include "gtest/gtest.h"
 #include "include_internal/ten_runtime/binding/cpp/ten.h"
 #include "tests/common/client/cpp/msgpack_tcp.h"
-#include "tests/ten_runtime/smoke/extension_test/util/binding/cpp/check.h"
+#include "tests/ten_runtime/smoke/util/binding/cpp/check.h"
 
 namespace {
 
 class test_property_access_app_store_1 : public ten::extension_t {
  public:
-  explicit test_property_access_app_store_1(const std::string &name)
+  explicit test_property_access_app_store_1(const char *name)
       : ten::extension_t(name) {}
 
   void on_cmd(ten::ten_env_t &ten_env,
@@ -26,7 +26,7 @@ class test_property_access_app_store_1 : public ten::extension_t {
 
 class test_property_access_app_store_2 : public ten::extension_t {
  public:
-  explicit test_property_access_app_store_2(const std::string &name)
+  explicit test_property_access_app_store_2(const char *name)
       : ten::extension_t(name) {}
 
   void on_cmd(ten::ten_env_t &ten_env,

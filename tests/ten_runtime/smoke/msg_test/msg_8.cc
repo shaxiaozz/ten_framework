@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -12,7 +12,7 @@
 #include "include_internal/ten_runtime/binding/cpp/ten.h"
 #include "ten_utils/lib/thread.h"
 #include "tests/common/client/cpp/msgpack_tcp.h"
-#include "tests/ten_runtime/smoke/extension_test/util/binding/cpp/check.h"
+#include "tests/ten_runtime/smoke/util/binding/cpp/check.h"
 
 #define TEST_DATA 12344321
 
@@ -20,11 +20,11 @@ namespace {
 
 class test_extension_1 : public ten::extension_t {
  public:
-  explicit test_extension_1(const std::string &name) : ten::extension_t(name) {}
+  explicit test_extension_1(const char *name) : ten::extension_t(name) {}
 
   void on_cmd(ten::ten_env_t &ten_env,
               std::unique_ptr<ten::cmd_t> cmd) override {
-    if (std::string(cmd->get_name()) == "hello_world") {
+    if (cmd->get_name() == "hello_world") {
       auto new_cmd = ten::cmd_t::create("test");
       new_cmd->set_property("test_data", TEST_DATA);
       hello_world_cmd = std::move(cmd);
@@ -48,11 +48,11 @@ class test_extension_1 : public ten::extension_t {
 
 class test_extension_2 : public ten::extension_t {
  public:
-  explicit test_extension_2(const std::string &name) : ten::extension_t(name) {}
+  explicit test_extension_2(const char *name) : ten::extension_t(name) {}
 
   void on_cmd(ten::ten_env_t &ten_env,
               std::unique_ptr<ten::cmd_t> cmd) override {
-    if (std::string(cmd->get_name()) == "test") {
+    if (cmd->get_name() == "test") {
       auto const test_data = cmd->get_property_int32("test_data");
       TEN_ASSERT(test_data == TEST_DATA, "Invalid argument.");
 
@@ -122,13 +122,11 @@ TEST(MsgTest, Msg8) {  // NOLINT
              }],
              "connections": [{
                "app": "msgpack://127.0.0.1:8001/",
-               "extension_group": "msg_8__extension_group_1",
                "extension": "msg_8__extension_1",
                "cmd": [{
                  "name": "test",
                  "dest": [{
                    "app": "msgpack://127.0.0.1:8001/",
-                   "extension_group": "msg_8__extension_group_2",
                    "extension": "msg_8__extension_2"
                  }]
                }]

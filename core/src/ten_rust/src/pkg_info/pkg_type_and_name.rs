@@ -1,12 +1,11 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
 //
 use std::hash::{Hash, Hasher};
 
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use super::{pkg_basic_info::PkgBasicInfo, pkg_type::PkgType, PkgInfo};
@@ -14,7 +13,9 @@ use crate::pkg_info::manifest::Manifest;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialOrd, Eq)]
 pub struct PkgTypeAndName {
+    #[serde(rename = "type")]
     pub pkg_type: PkgType,
+
     pub name: String,
 }
 
@@ -31,14 +32,9 @@ impl PartialEq for PkgTypeAndName {
     }
 }
 
-impl TryFrom<&Manifest> for PkgTypeAndName {
-    type Error = anyhow::Error;
-
-    fn try_from(manifest: &Manifest) -> Result<Self> {
-        Ok(PkgTypeAndName {
-            pkg_type: manifest.pkg_type.parse::<PkgType>()?,
-            name: manifest.name.clone(),
-        })
+impl From<&Manifest> for PkgTypeAndName {
+    fn from(manifest: &Manifest) -> Self {
+        manifest.type_and_name.clone()
     }
 }
 

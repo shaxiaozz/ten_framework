@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -12,13 +12,13 @@
 #include "ten_runtime/common/status_code.h"
 #include "ten_utils/lib/thread.h"
 #include "tests/common/client/cpp/msgpack_tcp.h"
-#include "tests/ten_runtime/smoke/extension_test/util/binding/cpp/check.h"
+#include "tests/ten_runtime/smoke/util/binding/cpp/check.h"
 
 namespace {
 
 class test_extension_1 : public ten::extension_t {
  public:
-  explicit test_extension_1(const std::string &name) : ten::extension_t(name) {}
+  explicit test_extension_1(const char *name) : ten::extension_t(name) {}
 
   void on_configure(ten::ten_env_t &ten_env) override {
     bool rc = ten::ten_env_internal_accessor_t::init_manifest_from_json(
@@ -52,7 +52,7 @@ class test_extension_1 : public ten::extension_t {
 
   void on_cmd(ten::ten_env_t &ten_env,
               std::unique_ptr<ten::cmd_t> cmd) override {
-    if (std::string(cmd->get_name()) == "hello_world") {
+    if (cmd->get_name() == "hello_world") {
       bool rc = ten_env.send_cmd(std::move(cmd));
       ASSERT_EQ(rc, true);
     }
@@ -61,7 +61,7 @@ class test_extension_1 : public ten::extension_t {
 
 class test_extension_2 : public ten::extension_t {
  public:
-  explicit test_extension_2(const std::string &name) : ten::extension_t(name) {}
+  explicit test_extension_2(const char *name) : ten::extension_t(name) {}
 
   void on_configure(ten::ten_env_t &ten_env) override {
     // clang-format off
@@ -94,7 +94,7 @@ class test_extension_2 : public ten::extension_t {
 
   void on_cmd(ten::ten_env_t &ten_env,
               std::unique_ptr<ten::cmd_t> cmd) override {
-    if (std::string(cmd->get_name()) == "hello_world") {
+    if (cmd->get_name() == "hello_world") {
       // The type of the returned status detail is 'string'.
       auto cmd_result = ten::cmd_result_t::create(TEN_STATUS_CODE_OK);
       cmd_result->set_property("detail", "hello world, too");
@@ -165,13 +165,11 @@ TEST(SchemaTest, CmdResultError) {  // NOLINT
              }],
              "connections": [{
                "app": "msgpack://127.0.0.1:8001/",
-               "extension_group": "basic_extension_group",
                "extension": "test_extension_1",
                "cmd": [{
                  "name": "hello_world",
                  "dest": [{
                    "app": "msgpack://127.0.0.1:8001/",
-                   "extension_group": "basic_extension_group",
                    "extension": "test_extension_2"
                  }]
                }]

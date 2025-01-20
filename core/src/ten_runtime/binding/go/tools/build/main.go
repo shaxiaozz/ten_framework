@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -1085,7 +1085,25 @@ func (ab *AppBuilder) autoDetectExtensions() error {
 	uniqueModules := make(map[string]string)
 
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		var isDir bool
+
+		if entry.IsDir() {
+			isDir = true
+		} else if entry.Type()&os.ModeSymlink != 0 {
+			targetPath := path.Join(extBaseDir, entry.Name())
+			info, err := os.Stat(targetPath)
+			if err != nil {
+				if ab.options.Verbose {
+					log.Printf("Failed to stat %s: %v\n", targetPath, err)
+				}
+				continue
+			}
+			if info.IsDir() {
+				isDir = true
+			}
+		}
+
+		if !isDir {
 			continue
 		}
 

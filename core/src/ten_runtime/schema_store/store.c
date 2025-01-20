@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -392,16 +392,16 @@ void ten_schema_store_deinit(ten_schema_store_t *self) {
     self->property = NULL;
   }
 
-  ten_hashtable_clear(&self->cmd_in);
-  ten_hashtable_clear(&self->cmd_out);
-  ten_hashtable_clear(&self->data_in);
-  ten_hashtable_clear(&self->data_out);
-  ten_hashtable_clear(&self->video_frame_in);
-  ten_hashtable_clear(&self->video_frame_out);
-  ten_hashtable_clear(&self->audio_frame_in);
-  ten_hashtable_clear(&self->audio_frame_out);
-  ten_hashtable_clear(&self->interface_in);
-  ten_hashtable_clear(&self->interface_out);
+  ten_hashtable_deinit(&self->cmd_in);
+  ten_hashtable_deinit(&self->cmd_out);
+  ten_hashtable_deinit(&self->data_in);
+  ten_hashtable_deinit(&self->data_out);
+  ten_hashtable_deinit(&self->video_frame_in);
+  ten_hashtable_deinit(&self->video_frame_out);
+  ten_hashtable_deinit(&self->audio_frame_in);
+  ten_hashtable_deinit(&self->audio_frame_out);
+  ten_hashtable_deinit(&self->interface_in);
+  ten_hashtable_deinit(&self->interface_out);
 }
 
 // {

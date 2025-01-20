@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -36,7 +36,6 @@ ten_extension_info_t *ten_extension_info_create(void) {
   ten_string_init(&self->extension_addon_name);
 
   ten_loc_init_empty(&self->loc);
-  self->extension = NULL;
 
   self->property = ten_value_create_object_with_move(NULL);
 
@@ -71,9 +70,9 @@ bool ten_extension_info_is_desired_extension_group(
 static bool ten_extension_info_is_specified_extension(
     ten_extension_info_t *self, const char *app_uri, const char *graph_id,
     const char *extension_group_name, const char *extension_name) {
-  TEN_ASSERT(self && ten_extension_info_check_integrity(self, true) &&
-                 extension_group_name && extension_name,
-             "Should not happen.");
+  TEN_ASSERT(
+      self && ten_extension_info_check_integrity(self, true) && extension_name,
+      "Should not happen.");
 
   if (app_uri && !ten_string_is_equal_c_str(&self->loc.app_uri, app_uri)) {
     return false;
@@ -142,8 +141,7 @@ ten_shared_ptr_t *get_extension_info_in_extensions_info(
     ten_list_t *extensions_info, const char *app_uri, const char *graph_id,
     const char *extension_group_name, const char *extension_addon_name,
     const char *extension_instance_name, bool should_exist, ten_error_t *err) {
-  TEN_ASSERT(extensions_info && extension_group_name && extension_instance_name,
-             "Should not happen.");
+  TEN_ASSERT(extensions_info && extension_instance_name, "Should not happen.");
 
   if (!should_exist) {
     TEN_ASSERT(

@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "include_internal/ten_runtime/addon/addon.h"
+#include "include_internal/ten_runtime/addon/addon_host.h"
 #include "include_internal/ten_runtime/common/loc.h"
 #include "include_internal/ten_runtime/engine/engine.h"
 #include "include_internal/ten_runtime/extension/base_dir.h"
@@ -18,6 +18,7 @@
 #include "include_internal/ten_runtime/extension/msg_dest_info/json.h"
 #include "include_internal/ten_runtime/extension/msg_dest_info/msg_dest_info.h"
 #include "include_internal/ten_runtime/extension/msg_handling.h"
+#include "include_internal/ten_runtime/extension/msg_not_connected_cnt.h"
 #include "include_internal/ten_runtime/extension/on_xxx.h"
 #include "include_internal/ten_runtime/extension_context/extension_context.h"
 #include "include_internal/ten_runtime/extension_group/extension_group.h"
@@ -119,6 +120,10 @@ ten_extension_t *ten_extension_create(
 
   self->ten_env = ten_env_create_for_extension(self);
 
+  ten_hashtable_init(
+      &self->msg_not_connected_count_map,
+      offsetof(ten_extension_output_msg_not_connected_count_t, hh_in_map));
+
   self->user_data = user_data;
 
   return self;
@@ -200,6 +205,8 @@ void ten_extension_destroy(ten_extension_t *self) {
     ten_ref_dec_ref(&self->addon_host->ref);
     self->addon_host = NULL;
   }
+
+  ten_hashtable_deinit(&self->msg_not_connected_count_map);
 
   TEN_FREE(self);
 }
@@ -498,20 +505,12 @@ static bool ten_extension_determine_out_msg_dest_from_graph(
   TEN_MSG_TYPE msg_type = ten_msg_get_type(msg);
   const char *msg_name = ten_msg_get_name(msg);
 
-  if (err) {
-    ten_error_set(
-        err, TEN_ERRNO_MSG_NOT_CONNECTED,
-        "Failed to find destination of a '%s' message '%s' from graph.",
-        ten_msg_type_to_string(msg_type), msg_name);
-  } else {
-    if (ten_msg_is_cmd_and_result(msg)) {
-      TEN_LOGD("Failed to find destination of a command '%s' from graph.",
-               msg_name);
-    } else {
-      // The amount of the data-like messages might be huge, so we don't
-      // dump error logs here to prevent log flooding.
-    }
-  }
+  // In any case, the user needs to be informed about the error where the graph
+  // does not have a specified destination for the message.
+  TEN_ASSERT(err, "Should not happen.");
+  ten_error_set(err, TEN_ERRNO_MSG_NOT_CONNECTED,
+                "Failed to find destination of a '%s' message '%s' from graph.",
+                ten_msg_type_to_string(msg_type), msg_name);
 
   return false;
 }
@@ -612,17 +611,8 @@ static TEN_EXTENSION_DETERMINE_OUT_MSGS_RESULT ten_extension_determine_out_msgs(
   }
 }
 
-static void ten_extension_dispatch_msg(ten_extension_t *self,
-                                       ten_shared_ptr_t *msg) {
-  TEN_ASSERT(self && ten_extension_check_integrity(self, true) && msg &&
-                 ten_msg_check_integrity(msg),
-             "Should not happen.");
-
-  ten_extension_thread_dispatch_msg(self->extension_thread, msg);
-}
-
-bool ten_extension_handle_out_msg(ten_extension_t *self, ten_shared_ptr_t *msg,
-                                  ten_error_t *err) {
+bool ten_extension_dispatch_msg(ten_extension_t *self, ten_shared_ptr_t *msg,
+                                ten_error_t *err) {
   TEN_ASSERT(self && ten_extension_check_integrity(self, true),
              "Should not happen.");
   TEN_ASSERT(msg && ten_msg_check_integrity(msg), "Should not happen.");
@@ -740,7 +730,7 @@ bool ten_extension_handle_out_msg(ten_extension_t *self, ten_shared_ptr_t *msg,
     TEN_ASSERT(result_msg && ten_msg_check_integrity(result_msg),
                "Invalid argument.");
 
-    ten_extension_dispatch_msg(self, result_msg);
+    ten_extension_thread_dispatch_msg(self->extension_thread, result_msg);
   }
 
 done:
@@ -777,6 +767,8 @@ static void ten_extension_on_configure(ten_env_t *ten_env) {
   self->property_info =
       ten_metadata_info_create(TEN_METADATA_ATTACH_TO_PROPERTY, self->ten_env);
 
+  self->state = TEN_EXTENSION_STATE_ON_CONFIGURE;
+
   if (self->on_configure) {
     self->on_configure(self, self->ten_env);
   } else {
@@ -796,6 +788,8 @@ void ten_extension_on_init(ten_env_t *ten_env) {
              "Invalid use of extension %p.", self);
 
   TEN_LOGD("[%s] on_init().", ten_extension_get_name(self, true));
+
+  self->state = TEN_EXTENSION_STATE_ON_INIT;
 
   if (self->on_init) {
     self->on_init(self, self->ten_env);
@@ -826,6 +820,8 @@ void ten_extension_on_stop(ten_extension_t *self) {
              "Invalid use of extension %p.", self);
 
   TEN_LOGI("[%s] on_stop().", ten_extension_get_name(self, true));
+
+  self->state = TEN_EXTENSION_STATE_ON_STOP;
 
   if (self->on_stop) {
     self->on_stop(self, self->ten_env);

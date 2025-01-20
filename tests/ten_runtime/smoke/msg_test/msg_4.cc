@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -11,7 +11,7 @@
 #include "include_internal/ten_runtime/binding/cpp/ten.h"
 #include "ten_utils/lib/thread.h"
 #include "tests/common/client/cpp/msgpack_tcp.h"
-#include "tests/ten_runtime/smoke/extension_test/util/binding/cpp/check.h"
+#include "tests/ten_runtime/smoke/util/binding/cpp/check.h"
 
 #define TIMER_TIMES 1
 
@@ -19,11 +19,11 @@ namespace {
 
 class test_extension : public ten::extension_t {
  public:
-  explicit test_extension(const std::string &name) : ten::extension_t(name) {}
+  explicit test_extension(const char *name) : ten::extension_t(name) {}
 
   void on_cmd(ten::ten_env_t &ten_env,
               std::unique_ptr<ten::cmd_t> cmd) override {
-    if (std::string(cmd->get_name()) == "hello_world") {
+    if (cmd->get_name() == "hello_world") {
       hello_world_cmd = std::move(cmd);
 
       // Start a timer.
@@ -35,7 +35,8 @@ class test_extension : public ten::extension_t {
 
       bool success = ten_env.send_cmd(std::move(timer_cmd));
       EXPECT_EQ(success, true);
-    } else if (cmd->get_type() == TEN_MSG_TYPE_CMD_TIMEOUT &&
+    } else if (ten::msg_internal_accessor_t::get_type(cmd.get()) ==
+                   TEN_MSG_TYPE_CMD_TIMEOUT &&
                std::unique_ptr<ten::cmd_timeout_t>(
                    static_cast<ten::cmd_timeout_t *>(cmd.release()))
                        ->get_timer_id() == 55) {

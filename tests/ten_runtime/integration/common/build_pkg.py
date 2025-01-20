@@ -1,5 +1,5 @@
 #
-# Copyright © 2024 Agora
+# Copyright © 2025 Agora
 # This file is part of TEN Framework, an open source project.
 # Licensed under the Apache License, Version 2.0, with certain conditions.
 # Refer to the "LICENSE" file in the root directory for more information.
@@ -8,20 +8,20 @@ import json
 import os
 import platform
 from datetime import datetime
+import time
+
 from . import (
     cmd_exec,
     fs_utils,
     build_config,
     install_pkg,
     install_all,
-    replace,
 )
 
 
 class ArgumentInfo:
     def __init__(self):
         self.pkg_src_root_dir: str
-        self.pkg_run_root_dir: str
         self.pkg_name: str
         self.pkg_language: str
         self.os: str
@@ -74,13 +74,6 @@ def _build_cpp_app(args: ArgumentInfo) -> int:
         print(output)
         return 1
 
-    # Copy the build result to the specified run folder.
-    fs_utils.copy(
-        f"{args.pkg_src_root_dir}/out/{args.os}/{args.cpu}/app/{args.pkg_name}",
-        args.pkg_run_root_dir,
-        True,
-    )
-
     return returncode
 
 
@@ -112,6 +105,63 @@ def is_mac_arm64() -> bool:
         platform.system().lower() == "darwin"
         and platform.machine().lower() == "arm64"
     )
+
+
+def _npm_install() -> int:
+    # 'npm install' might be failed because of the bad network connection, and
+    # it might be stuck in a situation where it cannot be recovered. Therefore,
+    # the best way is to delete the whole node_modules/, and try again.
+    returncode = 0
+
+    for i in range(1, 10):
+        returncode, output = cmd_exec.run_cmd(
+            [
+                "npm",
+                "install",
+            ]
+        )
+
+        if returncode == 0:
+            break
+        else:
+            # Delete node_modules/ and try again.
+            print(
+                (
+                    f"Failed to 'npm install', output: {output}, "
+                    "deleting node_modules/ and try again."
+                )
+            )
+            fs_utils.remove_tree("node_modules")
+            time.sleep(5)
+    if returncode != 0:
+        print("Failed to 'npm install' after 10 times retries")
+
+    return returncode
+
+
+def _build_nodejs_app(args: ArgumentInfo) -> int:
+    t1 = datetime.now()
+
+    status_code = _npm_install()
+    if status_code != 0:
+        return status_code
+
+    cmd = ["npm", "run", "build"]
+    status_code, output = cmd_exec.run_cmd(cmd)
+    if status_code != 0:
+        print(f"Failed to npm run build, output: {output}")
+        return status_code
+
+    t2 = datetime.now()
+    duration = (t2 - t1).seconds
+    print(
+        (
+            f"Profiling ====> build node app({args.pkg_name}) "
+            f"costs {duration} seconds."
+        )
+    )
+
+    return status_code
 
 
 def _build_go_app(args: ArgumentInfo) -> int:
@@ -172,6 +222,8 @@ def _build_app(args: ArgumentInfo) -> int:
         returncode = _build_go_app(args)
     elif args.pkg_language == "python":
         returncode = 0
+    elif args.pkg_language == "nodejs":
+        returncode = _build_nodejs_app(args)
     else:
         raise Exception(f"Unknown app language: {args.pkg_language}")
 
@@ -193,7 +245,7 @@ def prepare_app(
     build_config: build_config.BuildConfig,
     root_dir: str,
     test_case_base_dir: str,
-    source_pkg_name: str,
+    app_dir_name: str,
     log_level: int,
 ) -> int:
     tman_path = os.path.join(root_dir, "ten_manager/bin/tman")
@@ -205,9 +257,9 @@ def prepare_app(
     )
 
     # Read the assembly info from
-    # <test_case_base_dir>/.assemble_info/<source_pkg_name>/info.json
+    # <test_case_base_dir>/.assemble_info/<app_dir_name>/info.json
     assemble_info_dir = os.path.join(
-        test_case_base_dir, ".assemble_info", source_pkg_name
+        test_case_base_dir, ".assemble_info", app_dir_name
     )
     info_file = os.path.join(assemble_info_dir, "info.json")
     with open(info_file, "r") as f:
@@ -246,7 +298,7 @@ def prepare_app(
     if log_level and log_level > 0:
         print("> Replace files after install app")
 
-    rc = _replace_after_install_app(test_case_base_dir, source_pkg_name)
+    rc = _replace_after_install_app(test_case_base_dir, app_dir_name)
     if rc != 0:
         print("Failed to replace files after install app")
         return 1
@@ -274,7 +326,7 @@ def prepare_app(
     if log_level and log_level > 0:
         print("> Replace files after install all")
 
-    rc = _replace_after_install_all(test_case_base_dir, source_pkg_name)
+    rc = _replace_after_install_all(test_case_base_dir, app_dir_name)
     if rc != 0:
         print("Failed to replace files after install all")
         return 1
@@ -283,29 +335,28 @@ def prepare_app(
 
 
 def _replace_after_install_app(
-    test_case_base_dir: str, source_pkg_name: str
+    test_case_base_dir: str, app_dir_name: str
 ) -> int:
     assemble_info_dir = os.path.join(
-        test_case_base_dir, ".assemble_info", source_pkg_name
+        test_case_base_dir, ".assemble_info", app_dir_name
     )
     assemble_info_file = os.path.join(assemble_info_dir, "info.json")
 
-    replace_files_after_install_app: list[str] = []
+    replace_paths_after_install_app: list[str] = []
 
     with open(assemble_info_file, "r") as f:
         info = json.load(f)
-        replace_files_after_install_app = info[
-            "replace_files_after_install_app"
+        replace_paths_after_install_app = info[
+            "replace_paths_after_install_app"
         ]
 
     if (
-        not replace_files_after_install_app
-        or len(replace_files_after_install_app) == 0
+        not replace_paths_after_install_app
+        or len(replace_paths_after_install_app) == 0
     ):
         return 0
 
-    replaced_files = []
-    for replace_file in replace_files_after_install_app:
+    for replace_file in replace_paths_after_install_app:
         src_file = os.path.join(
             assemble_info_dir,
             "files_to_be_replaced_after_install_app",
@@ -317,41 +368,39 @@ def _replace_after_install_app(
             return 1
 
         dst_file = os.path.join(test_case_base_dir, replace_file)
-        replaced_files.append((src_file, dst_file))
 
-    try:
-        replace.replace_normal_files_or_merge_json_files(replaced_files)
-    except Exception as exc:
-        print(exc)
-        return 1
+        try:
+            fs_utils.copy(src_file, dst_file)
+        except Exception as exc:
+            print(exc)
+            return 1
 
     return 0
 
 
 def _replace_after_install_all(
-    test_case_base_dir: str, source_pkg_name: str
+    test_case_base_dir: str, app_dir_name: str
 ) -> int:
     assemble_info_dir = os.path.join(
-        test_case_base_dir, ".assemble_info", source_pkg_name
+        test_case_base_dir, ".assemble_info", app_dir_name
     )
     assemble_info_file = os.path.join(assemble_info_dir, "info.json")
 
-    replace_files_after_install_all: list[str] = []
+    replace_paths_after_install_all: list[str] = []
 
     with open(assemble_info_file, "r") as f:
         info = json.load(f)
-        replace_files_after_install_all = info[
-            "replace_files_after_install_all"
+        replace_paths_after_install_all = info[
+            "replace_paths_after_install_all"
         ]
 
     if (
-        not replace_files_after_install_all
-        or len(replace_files_after_install_all) == 0
+        not replace_paths_after_install_all
+        or len(replace_paths_after_install_all) == 0
     ):
         return 0
 
-    replaced_files = []
-    for replace_file in replace_files_after_install_all:
+    for replace_file in replace_paths_after_install_all:
         src_file = os.path.join(
             assemble_info_dir,
             "files_to_be_replaced_after_install_all",
@@ -363,29 +412,26 @@ def _replace_after_install_all(
             return 1
 
         dst_file = os.path.join(test_case_base_dir, replace_file)
-        replaced_files.append((src_file, dst_file))
 
-    try:
-        replace.replace_normal_files_or_merge_json_files(replaced_files)
-    except Exception as exc:
-        print(exc)
-        return 1
+        try:
+            fs_utils.copy(src_file, dst_file)
+        except Exception as exc:
+            print(exc)
+            return 1
 
     return 0
 
 
 def build_app(
     build_config: build_config.BuildConfig,
-    pkg_src_root_dir: str,
-    pkg_run_root_dir: str,
-    pkg_name: str,
+    app_dir_path: str,
+    app_dir_name: str,
     pkg_language: str,
     log_level: int = 0,
 ) -> int:
     args = ArgumentInfo()
-    args.pkg_src_root_dir = pkg_src_root_dir
-    args.pkg_run_root_dir = pkg_run_root_dir
-    args.pkg_name = pkg_name
+    args.pkg_src_root_dir = app_dir_path
+    args.pkg_name = app_dir_name
     args.pkg_language = pkg_language
     args.os = build_config.target_os
     args.cpu = build_config.target_cpu
@@ -436,8 +482,7 @@ def prepare_and_build_app(
     build_config: build_config.BuildConfig,
     root_dir: str,
     test_case_base_dir: str,
-    pkg_run_root_dir: str,
-    source_pkg_name: str,
+    app_dir_name: str,
     pkg_language: str,
     log_level: int = 2,
 ) -> int:
@@ -445,24 +490,59 @@ def prepare_and_build_app(
         build_config,
         root_dir,
         test_case_base_dir,
-        source_pkg_name,
+        app_dir_name,
         log_level,
     )
     if rc != 0:
         return rc
 
-    pkg_src_root_dir = os.path.join(test_case_base_dir, source_pkg_name)
+    app_dir_path = os.path.join(test_case_base_dir, app_dir_name)
 
     rc = build_app(
         build_config,
-        pkg_src_root_dir,
-        pkg_run_root_dir,
-        source_pkg_name,
+        app_dir_path,
+        app_dir_name,
         pkg_language,
         log_level,
     )
 
     return rc
+
+
+def build_nodejs_extensions(app_root_path: str):
+    origin_wd = os.getcwd()
+
+    extension_dir = os.path.join(app_root_path, "ten_packages/extension")
+
+    if os.path.exists(extension_dir):
+        for extension in os.listdir(extension_dir):
+            extension_path = os.path.join(extension_dir, extension)
+            if os.path.isdir(extension_path):
+                # If the extension is a typescript extension, build it.
+                if not os.path.exists(
+                    os.path.join(extension_path, "tsconfig.json")
+                ):
+                    continue
+
+                # Change to extension directory.
+                os.chdir(extension_path)
+
+                status = _npm_install()
+                if status != 0:
+                    print(f"Failed to npm install in {extension_path}")
+                    return 1
+
+                cmd = ["npm", "run", "build"]
+                returncode, output = cmd_exec.run_cmd(cmd)
+                if returncode:
+                    print(
+                        f"Failed to build extension {extension_path}: {output}"
+                    )
+                    return 1
+
+    os.chdir(origin_wd)
+
+    return 0
 
 
 def cleanup(

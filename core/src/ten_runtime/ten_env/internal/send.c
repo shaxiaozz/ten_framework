@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -10,13 +10,17 @@
 
 #include "include_internal/ten_runtime/app/msg_interface/common.h"
 #include "include_internal/ten_runtime/common/loc.h"
+#include "include_internal/ten_runtime/engine/msg_interface/common.h"
 #include "include_internal/ten_runtime/extension/extension.h"
+#include "include_internal/ten_runtime/extension/msg_not_connected_cnt.h"
 #include "include_internal/ten_runtime/extension_context/extension_context.h"
+#include "include_internal/ten_runtime/extension_group/msg_interface/common.h"
 #include "include_internal/ten_runtime/extension_thread/extension_thread.h"
 #include "include_internal/ten_runtime/msg/cmd_base/cmd_base.h"
 #include "include_internal/ten_runtime/msg/msg.h"
 #include "include_internal/ten_runtime/ten_env/send.h"
 #include "include_internal/ten_runtime/ten_env/ten_env.h"
+#include "ten_runtime/app/app.h"
 #include "ten_runtime/common/errno.h"
 #include "ten_runtime/msg/cmd_result/cmd_result.h"
 #include "ten_runtime/msg/msg.h"
@@ -27,7 +31,7 @@
 #include "ten_utils/macro/memory.h"
 
 /**
- * @brief All message sending code flows will eventually fall into this
+ * @brief All message-sending code paths will ultimately converge in this
  * function.
  */
 static bool ten_send_msg_internal(
@@ -41,6 +45,9 @@ static bool ten_send_msg_internal(
 
   const bool msg_is_cmd = ten_msg_is_cmd(msg);
 
+  // Even if the user does not pass in the `err` parameter, since different
+  // error scenarios require different handling, we need to create a temporary
+  // one to obtain the actual error information.
   bool err_new_created = false;
   if (!err) {
     err = ten_error_create();
@@ -96,7 +103,24 @@ static bool ten_send_msg_internal(
       ten_extension_t *extension = ten_env_get_attached_extension(self);
       TEN_ASSERT(extension, "Should not happen.");
 
-      result = ten_extension_handle_out_msg(extension, msg, err);
+      result = ten_extension_dispatch_msg(extension, msg, err);
+      break;
+    }
+
+    case TEN_ENV_ATTACH_TO_EXTENSION_GROUP: {
+      ten_extension_group_t *extension_group =
+          ten_env_get_attached_extension_group(self);
+      TEN_ASSERT(extension_group, "Should not happen.");
+
+      result = ten_extension_group_dispatch_msg(extension_group, msg, err);
+      break;
+    }
+
+    case TEN_ENV_ATTACH_TO_ENGINE: {
+      ten_engine_t *engine = ten_env_get_attached_engine(self);
+      TEN_ASSERT(engine, "Should not happen.");
+
+      result = ten_engine_dispatch_msg(engine, msg);
       break;
     }
 
@@ -104,7 +128,7 @@ static bool ten_send_msg_internal(
       ten_app_t *app = ten_env_get_attached_app(self);
       TEN_ASSERT(app, "Should not happen.");
 
-      result = ten_app_handle_out_msg(app, msg, err);
+      result = ten_app_dispatch_msg(app, msg, err);
       break;
     }
 
@@ -116,7 +140,17 @@ static bool ten_send_msg_internal(
 done:
   if (!result) {
     if (ten_error_errno(err) == TEN_ERRNO_MSG_NOT_CONNECTED) {
-      TEN_LOGD("Failed to send message: %s", ten_error_errmsg(err));
+      if (ten_env_get_attach_to(self) == TEN_ENV_ATTACH_TO_EXTENSION) {
+        ten_extension_t *extension = ten_env_get_attached_extension(self);
+        TEN_ASSERT(extension, "Should not happen.");
+
+        if (ten_extension_increment_msg_not_connected_count(
+                extension, ten_msg_get_name(msg))) {
+          TEN_LOGW("Failed to send message: %s", ten_error_errmsg(err));
+        }
+      } else {
+        TEN_LOGE("Failed to send message: %s", ten_error_errmsg(err));
+      }
     } else {
       TEN_LOGE("Failed to send message: %s", ten_error_errmsg(err));
     }
@@ -206,7 +240,9 @@ bool ten_env_send_cmd(ten_env_t *self, ten_shared_ptr_t *cmd,
       ten_cmd_result_handler_for_send_cmd_ctx_destroy(ctx);
     }
   } else {
-    rc = ten_send_msg_internal(self, cmd, NULL, result_handler_user_data, err);
+    TEN_ASSERT(!result_handler_user_data, "Should not happen.");
+
+    rc = ten_send_msg_internal(self, cmd, NULL, NULL, err);
   }
 
   return rc;

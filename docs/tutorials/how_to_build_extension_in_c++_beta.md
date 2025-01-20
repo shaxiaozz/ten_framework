@@ -346,7 +346,7 @@ The extension created by developers needs to inherit the `ten::extension_t` clas
 ```
 class extension_t {
 protected:
-  explicit extension_t(const std::string &name) {...}
+  explicit extension_t(const char *name) {...}
 
   virtual void on_init(ten_t &ten, metadata_info_t &manifest,
                      metadata_info_t &property) {
@@ -886,7 +886,7 @@ After the command completes, the uploaded extension can be found in the /tmp/cod
 >
 > class http_server_extension_t : public ten::extension_t {
 > public:
->   explicit http_server_extension_t(const std::string &name)
+>   explicit http_server_extension_t(const char *name)
 >       : extension_t(name) {}
 >
 >   void on_start(ten::ten_t &ten) override {
@@ -998,14 +998,12 @@ In the app's `manifest.json`, configure `predefined_graph` to specify that the `
 >     ],
 >     "connections": [
 >       {
->         "extension_group": "http_thread",
 >         "extension": "http_server",
 >         "cmd": [
 >           {
 >             "name": "hello",
 >             "dest": [
 >               {
->                 "extension_group": "http_thread",
 >                 "extension": "first_cxx_extension"
 >               }
 >             ]

@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -90,17 +90,6 @@ void ten_go_msg_set_go_handle(ten_go_msg_t *self, ten_go_handle_t go_handle) {
   TEN_ASSERT(ten_go_msg_check_integrity(self), "Should not happen.");
 
   self->go_msg = go_handle;
-}
-
-int ten_go_msg_get_type(uintptr_t bridge_addr) {
-  ten_go_msg_t *msg_bridge = ten_go_msg_reinterpret(bridge_addr);
-  TEN_ASSERT(msg_bridge && ten_go_msg_check_integrity(msg_bridge),
-             "Should not happen.");
-
-  TEN_MSG_TYPE type = ten_msg_get_type(msg_bridge->c_msg);
-  TEN_ASSERT(type != TEN_MSG_TYPE_INVALID, "Should not happen.");
-
-  return type;
 }
 
 static ten_value_t *ten_go_msg_property_get_and_check_if_exists(

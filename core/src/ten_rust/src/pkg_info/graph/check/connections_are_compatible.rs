@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -28,8 +28,8 @@ impl Graph {
         self.nodes
             .iter()
             .find_map(|node| {
-                if node.node_type == PkgType::Extension
-                    && node.name.as_str() == extension
+                if node.type_and_name.pkg_type == PkgType::Extension
+                    && node.type_and_name.name.as_str() == extension
                     && node.get_app_uri() == app
                 {
                     Some(node.addon.as_str())
@@ -71,7 +71,10 @@ impl Graph {
             if let Err(e) =
                 are_ten_schemas_compatible(src_msg_schema, dest_msg_schema)
             {
-                errors.push(format!("Schema incompatible to [extension_group: {}, extension: {}], {}", dest.extension_group, dest.extension, e));
+                errors.push(format!(
+                    "Schema incompatible to [extension: {}], {}",
+                    dest.extension, e
+                ));
             }
         }
 
@@ -120,7 +123,10 @@ impl Graph {
             if let Err(e) =
                 are_cmd_schemas_compatible(src_cmd_schema, dest_cmd_schema)
             {
-                errors.push(format!("Schema incompatible to [extension_group: {}, extension: {}], {}", dest.extension_group, dest.extension, e));
+                errors.push(format!(
+                    "Schema incompatible to [extension: {}], {}",
+                    dest.extension, e
+                ));
             }
         }
 
@@ -298,18 +304,16 @@ fn find_cmd_schema_from_all_pkgs_info<'a>(
     cmd_name: &str,
     direction: MsgDirection,
 ) -> Option<&'a CmdSchema> {
-    let addon_pkg = existed_pkgs_of_app
-        .iter()
-        .find(|pkg| {
-            pkg.basic_info.type_and_name.pkg_type == PkgType::Extension
-                && pkg.basic_info.type_and_name.name == addon
-        })
-        .unwrap_or_else(|| {
-            panic!("should not happen.");
-        });
+    // Attempt to find the addon package. If not found, return None.
+    let addon_pkg = existed_pkgs_of_app.iter().find(|pkg| {
+        pkg.basic_info.type_and_name.pkg_type == PkgType::Extension
+            && pkg.basic_info.type_and_name.name == addon
+    })?;
 
+    // Access the schema_store. If it's None, propagate None.
     let schema_store = addon_pkg.schema_store.as_ref()?;
 
+    // Retrieve the command schema based on the direction.
     match direction {
         MsgDirection::In => schema_store.cmd_in.get(cmd_name),
         MsgDirection::Out => schema_store.cmd_out.get(cmd_name),
@@ -329,15 +333,10 @@ fn find_msg_schema_from_all_pkgs_info<'a>(
             panic!("should not happen.");
         });
 
-    let addon_pkg = existed_pkgs_of_app
-        .iter()
-        .find(|pkg| {
-            pkg.basic_info.type_and_name.pkg_type == PkgType::Extension
-                && pkg.basic_info.type_and_name.name == addon
-        })
-        .unwrap_or_else(|| {
-            panic!("should not happen.");
-        });
+    let addon_pkg = existed_pkgs_of_app.iter().find(|pkg| {
+        pkg.basic_info.type_and_name.pkg_type == PkgType::Extension
+            && pkg.basic_info.type_and_name.name == addon
+    })?;
 
     let schema_store = addon_pkg.schema_store.as_ref()?;
 

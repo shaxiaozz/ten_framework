@@ -1,5 +1,5 @@
 #
-# Copyright © 2024 Agora
+# Copyright © 2025 Agora
 # This file is part of TEN Framework, an open source project.
 # Licensed under the Apache License, Version 2.0, with certain conditions.
 # Refer to the "LICENSE" file in the root directory for more information.
@@ -33,19 +33,43 @@ ten_executable("ten_runtime_smoke_test") {
 
   deps += [
     "audio_frame_test",
+    "basic",
+    "close_app",
     "cmd_conversion",
     "cmd_result_test",
+    "command",
+    "concurrent",
     "data_test",
-    "extension_test",
+    "dest",
+    "engine",
+    "error",
+    "extension",
+    "extension_group",
+    "graph",
+    "graph_name",
     "graph_test",
+    "lock",
     "log_test",
     "msg_property",
     "msg_test",
+    "multi_dest",
     "notify_test",
+    "outer_thread",
+    "path",
+    "predefined_graph",
+    "prepare_to_stop",
     "property",
+    "resp_handler",
     "result_conversion",
+    "return",
+    "same_thread_ext_on_xxx",
+    "send",
     "standalone_test",
+    "start_graph",
+    "suspend_resume",
     "ten_env_call_timing",
+    "ten_proxy",
+    "timer",
     "video_frame_test",
   ]
 
@@ -69,7 +93,7 @@ ten_executable("ten_runtime_smoke_test") {
 
   if (enable_sanitizer) {
     if (!is_clang) {
-      deps += [ "//build/common/asan:package_asan_lib_for_ten_framework_standalone_test" ]
+      deps += [ "//build/ten_common/asan:package_asan_lib_for_ten_framework_standalone_test" ]
     }
   }
 
@@ -77,6 +101,10 @@ ten_executable("ten_runtime_smoke_test") {
     "//third_party/googlemock",
     "//third_party/googletest",
   ]
+
+  if (ten_enable_libwebsockets && ten_enable_curl) {
+    deps += [ "http_server_extension" ]
+  }
 }
 
 group("smoke") {

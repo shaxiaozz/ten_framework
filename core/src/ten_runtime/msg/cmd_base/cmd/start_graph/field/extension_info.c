@@ -1,5 +1,5 @@
 //
-// Copyright © 2024 Agora
+// Copyright © 2025 Agora
 // This file is part of TEN Framework, an open source project.
 // Licensed under the Apache License, Version 2.0, with certain conditions.
 // Refer to the "LICENSE" file in the root directory for more information.
@@ -32,8 +32,8 @@
 #include "ten_utils/value/value.h"
 #include "ten_utils/value/value_is.h"
 
-ten_value_t *ten_cmd_start_graph_extensions_info_to_value(ten_msg_t *self,
-                                                          ten_error_t *err) {
+static ten_value_t *ten_cmd_start_graph_extensions_info_to_value(
+    ten_msg_t *self, ten_error_t *err) {
   TEN_ASSERT(self && ten_raw_msg_check_integrity(self), "Should not happen.");
 
   ten_cmd_start_graph_t *cmd = (ten_cmd_start_graph_t *)self;
